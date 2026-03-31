@@ -1,0 +1,9 @@
+{
+  "Name": "Wonder Automation",
+  "Version": "1.0.0",
+  "Id": "Calloatti.WonderAutomation",
+  "MinimumGameVersion": "1.0.12.5",
+  "Description": "Adds an automation terminal to Wonders, allowing them to be automatically launched via automation signals.",
+  "RequiredMods": [],
+  "OptionalMods": []
+}
