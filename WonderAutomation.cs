@@ -6,11 +6,14 @@ using Timberborn.BaseComponentSystem;
 using Timberborn.CoreUI;
 using Timberborn.DuplicationSystem;
 using Timberborn.EntityPanelSystem;
+using Timberborn.Localization;
 using Timberborn.Persistence;
+using Timberborn.SingletonSystem;
 using Timberborn.TemplateInstantiation;
 using Timberborn.Wonders;
 using Timberborn.WorldPersistence;
 using UnityEngine.UIElements;
+using Timberborn.DropdownSystem;
 
 namespace Calloatti.WonderAutomation
 {
@@ -107,38 +110,71 @@ namespace Calloatti.WonderAutomation
   /// </summary>
   public class WonderLaunchTerminalFragment : IEntityPanelFragment
   {
+    private static readonly string TransmitterSelectorNoneClass = "transmitter-selector--automatable-none";
+
     private readonly VisualElementLoader _visualElementLoader;
-    private readonly TransmitterSelectorInitializer _transmitterSelectorInitializer;
+    private readonly AutomatorRegistry _automatorRegistry;
+    private readonly EventBus _eventBus;
+    private readonly ILoc _loc;
+    private readonly DropdownItemsSetter _dropdownItemsSetter;
+    private readonly AutomationStateIconBuilder _automationStateIconBuilder;
+    private readonly TransmitterPickerTool _transmitterPickerTool;
 
     private VisualElement _root;
     private TransmitterSelector _inputSelector;
     private WonderLaunchTerminal _terminal;
 
-    public WonderLaunchTerminalFragment(VisualElementLoader visualElementLoader, TransmitterSelectorInitializer transmitterSelectorInitializer)
+    public WonderLaunchTerminalFragment(
+        VisualElementLoader visualElementLoader,
+        AutomatorRegistry automatorRegistry,
+        EventBus eventBus,
+        ILoc loc,
+        DropdownItemsSetter dropdownItemsSetter,
+        AutomationStateIconBuilder automationStateIconBuilder,
+        TransmitterPickerTool transmitterPickerTool)
     {
       _visualElementLoader = visualElementLoader;
-      _transmitterSelectorInitializer = transmitterSelectorInitializer;
+      _automatorRegistry = automatorRegistry;
+      _eventBus = eventBus;
+      _loc = loc;
+      _dropdownItemsSetter = dropdownItemsSetter;
+      _automationStateIconBuilder = automationStateIconBuilder;
+      _transmitterPickerTool = transmitterPickerTool;
     }
 
     public VisualElement InitializeFragment()
     {
-      // We can reuse the exact same UI visual tree that standard automation uses
       _root = _visualElementLoader.LoadVisualElement("Game/EntityPanel/AutomatableFragment");
       _inputSelector = _root.Q<TransmitterSelector>("Input");
 
-      // Initialize it with our custom Getters and Setters
-      _transmitterSelectorInitializer.InitializeStandalone(
-          _inputSelector,
-          () => _terminal.Input,
-          automator => _terminal.SetInput(automator)
+      // Set up our accessors
+      Func<Automator> getter = () => _terminal.Input;
+      Action<Automator> setter = (automator) => _terminal.SetInput(automator);
+
+      // Create the custom Dropdown Provider to inject our specific Localization Keys
+      TransmitterDropdownProvider transmitterDropdownProvider = new TransmitterDropdownProvider(
+          _automatorRegistry,
+          _loc,
+          getter,
+          setter,
+          "Automation.AutomationNone",                         // Key for "None" when inside the dropdown list
+          "Building.WonderLaunchTerminal.AutomateLaunch"       // Key for "Automate Launch" when empty and unselected
       );
 
-      // Re-label the dropdown so players know this one is for the launch sequence
-      Label label = _inputSelector.Q<Label>();
-      if (label != null)
-      {
-        label.text = "Automate Launch";
-      }
+      AutomationStateIcon automationStateIcon = _automationStateIconBuilder
+          .Create(_inputSelector.Q<Image>("StateIcon"), getter)
+          .SetClickableIcon()
+          .Build();
+
+      // Initialize the TransmitterSelector directly, bypassing the initializer wrapper
+      _inputSelector.Initialize(
+          _dropdownItemsSetter,
+          _eventBus,
+          _transmitterPickerTool,
+          transmitterDropdownProvider,
+          automationStateIcon,
+          setter
+      );
 
       _root.ToggleDisplayStyle(visible: false);
       return _root;
@@ -159,6 +195,8 @@ namespace Calloatti.WonderAutomation
       if (_terminal != null)
       {
         _inputSelector.UpdateStateIcon();
+        // Dynamically applies the CSS class that strips the dropdown arrow and styles it as a button when empty
+        _inputSelector.EnableInClassList(TransmitterSelectorNoneClass, _terminal.Input == null);
       }
     }
 
