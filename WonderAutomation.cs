@@ -166,14 +166,15 @@ namespace Calloatti.WonderAutomation
           .SetClickableIcon()
           .Build();
 
-      // Initialize the TransmitterSelector directly, bypassing the initializer wrapper
+      // 1.1 FIX: Explicitly pass 'null' for the new 7th parameter (closeIconClicked) to stop the MissingMethodException
       _inputSelector.Initialize(
           _dropdownItemsSetter,
           _eventBus,
           _transmitterPickerTool,
           transmitterDropdownProvider,
           automationStateIcon,
-          setter
+          setter,
+          null
       );
 
       _root.ToggleDisplayStyle(visible: false);
@@ -251,8 +252,8 @@ namespace Calloatti.WonderAutomation
       public EntityPanelModule Get()
       {
         EntityPanelModule.Builder builder = new EntityPanelModule.Builder();
-        // Adds our custom UI dropdown to the bottom of the building menu
-        builder.AddBottomFragment(_fragment);
+        // Adds our custom UI dropdown to the bottom of the building menu with 1.1 ordering priorities
+        builder.AddBottomFragment(_fragment, 100);
         return builder.Build();
       }
     }
